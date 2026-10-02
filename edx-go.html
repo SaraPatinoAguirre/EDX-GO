@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EDX GO - Ruta de Excelencia en la Experiencia</title>
+  
+  <!-- Librerías Externas para Exportación y API de YouTube -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0b0d19;
+      --card-bg: rgba(22, 27, 46, 0.85);
+      --primary: #00d2ff;
+      --accent: #3a7bd5;
+      --text: #ffffff;
+      --text-muted: #a0aec0;
+      --success: #27ae60;
+      --danger: #e74c3c;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+    body {
+      background: radial-gradient(circle at center, #1a1f3c 0%, var(--bg-dark) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header { text-align: center; margin-bottom: 25px; width: 100%; max-width: 950px; }
+    h1 { font-size: 2.2rem; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; }
+    p.subtitle { color: var(--text-muted); font-size: 1rem; margin-top: 5px; }
+
+    /* Barra de Progreso */
+    .progress-container {
+      width: 100%; max-width: 950px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px; padding: 15px; margin-bottom: 30px;
+      border: 1px solid var(--border); backdrop-filter: blur(5px);
+    }
+    .progress-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; }
+    .bar-bg { width: 100%; height: 12px; background: rgba(255, 255, 255, 0.1); border-radius: 6px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.4s ease; }
+
+    /* Módulos Grid */
+    .modules-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px; width: 100%; max-width: 950px;
+    }
+    .module-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px; transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+    .module-card:hover { transform: translateY(-4px); border-color: var(--primary); }
+    .module-card.locked { opacity: 0.5; filter: grayscale(80%); pointer-events: none; }
+    .module-card.completed { border-color: var(--success); }
+
+    .card-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .card-tag { font-size: 0.75rem; background: rgba(0, 210, 255, 0.15); color: var(--primary); padding: 4px 8px; border-radius: 4px; display: inline-block; margin-bottom: 10px; font-weight: bold; }
+    .card-title { font-size: 1.1rem; margin-bottom: 8px; }
+    .card-desc { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4; }
+
+    .btn {
+      width: 100%; padding: 10px; border: none; border-radius: 6px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      color: white; font-weight: bold; cursor: pointer; transition: opacity 0.2s ease;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--border); }
+    .btn-reset { background: rgba(231, 76, 60, 0.2); color: #e74c3c; margin-top: 20px; width: auto; padding: 8px 16px; }
+
+    /* Modal Espacioso */
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+    }
+    .modal-content {
+      background: #161b2e; border: 1px solid var(--primary); border-radius: 12px;
+      max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 25px; position: relative;
+    }
+    .close-btn { position: absolute; top: 15px; right: 15px; color: var(--text-muted); cursor: pointer; font-size: 1.5rem; }
+
+    /* Tabs dentro del Modal */
+    .tab-container { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); font-weight: bold; padding: 8px 16px; cursor: pointer; border-radius: 6px; }
+    .tab-btn.active { color: var(--primary); background: rgba(0, 210, 255, 0.1); }
+    .tab-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .scroll-container {
+      max-height: 380px; overflow-y: auto; padding: 15px;
+      border: 1px solid var(--border); border-radius: 8px; background: rgba(0, 0, 0, 0.2);
+    }
+
+    .media-box { width: 100%; margin: 10px 0; border-radius: 8px; overflow: hidden; background: #000; }
+    .media-box iframe { width: 100%; height: 315px; border: none; }
+    .media-box img { width: 100%; height: auto; display: block; }
+
+    /* Quiz Styling */
+    .question-block { margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid var(--border); }
+    .question-title { font-weight: bold; font-size: 1rem; margin-bottom: 10px; color: var(--primary); }
+    .quiz-option { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; margin-bottom: 8px; cursor: pointer; border: 1px solid var(--border); font-size: 0.9rem; }
+    .quiz-option:hover { border-color: var(--primary); }
+    .quiz-option.selected { border-color: var(--primary); background: rgba(0, 210, 255, 0.15); }
+
+    .alert-banner {
+      background: rgba(231, 76, 60, 0.2); border: 1px solid var(--danger);
+      color: #ff8e8e; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>EDX GO — Ruta de Excelencia</h1>
+    <p class="subtitle">Programa Especializado en Excelencia de la Experiencia (24 Horas)</p>
+  </header>
+
+  <div class="progress-container">
+    <div class="progress-header">
+      <span>Progreso General de la Ruta</span>
+      <span id="progress-text">0% Completado</span>
+    </div>
+    <div class="bar-bg">
+      <div id="progress-bar" class="bar-fill"></div>
+    </div>
+  </div>
+
+  <div id="modules-grid" class="modules-grid"></div>
+
+  <button class="btn btn-reset" onclick="resetProgress()">Reiniciar Avance Guardado</button>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const MODULES = [
+      {
+        id: "m1", name: "1. Introducción al área de Excelencia", tag: "TEMA 1 - 5.5 H", icon: "🌌",
+        description: "Nuestra visión, modelo de desempeño, organigrama, SGI y razón de ser del monitoreo.",
+        contentType: "video", youtubeId: "dQw4w9WgXcQ",
+        contentInfo: "Revisa el contenido audiovisual y documental sobre el área de Excelencia antes de presentar el quiz.",
+        quiz: [
+          { q: "¿Cuál es el propósito principal del monitoreo en el SGI?", opts: ["Supervisar horarios", "Garantizar estándares de calidad e impulsar la mejora continua", "Generar llamadas de atención", "Contabilizar tiempos de descanso"], correct: 1 },
+          { q: "¿A qué área pertenece la visión corporativa expuesta en la bienvenida?", opts: ["Gestión Humana", "Excelencia de la Experiencia", "Tecnología", "Operaciones Comerciales"], correct: 1 },
+          { q: "¿Qué define el Modelo de Desempeño corporativo?", opts: ["Lineamientos operacionales e identidad de marca", "Estrategia de ventas directas", "Precios de proveedores", "Horarios de calibración"], correct: 0 },
+          { q: "¿Dónde se encuentra ubicado el proceso de Calidad dentro del SGI?", opts: ["Proceso de Apoyo", "Sistema de Gestión Integrado para asegurar consistencia", "Área Externa", "Auditoría Financiera"], correct: 1 },
+          { q: "¿Qué uso principal tienen los logos e identidad de marca?", opts: ["Uso personal", "Garantizar alineación gráfica y normativa institucional", "No tienen restricción", "Uso solo en publicidad exterior"], correct: 1 }
+        ]
+      },
+      {
+        id: "m2", name: "2. Norma COPC", tag: "TEMA 2 - 3.5 H", icon: "🪐",
+        description: "Estándar COPC, relación servicio-costos-satisfacción e indicadores PECU, PECN, PENC, SPC.",
+        contentType: "image", contentUrl: "https://via.placeholder.com/600x800/161b2e/00d2ff?text=Infografia+Norma+COPC+e+Indicadores+(Haz+Scroll)",
+        contentInfo: "Lee la infografía sobre los indicadores PECU, PECN, PENC y la Norma COPC.",
+        quiz: [
+          { q: "¿Qué significan las siglas PECU en el marco del estándar COPC?", opts: ["Proceso Evaluado de Control Único", "Punto Crítico del Usuario", "Proceso de Calidad Único", "Porcentaje de Eficiencia Comercial"], correct: 1 },
+          { q: "¿Cuál es la relación equilibrada según la Norma COPC?", opts: ["Servicio - Costos - Satisfacción", "Ventas - Calidad - Multas", "Tiempo - Asistencia - Salida", "Auditoría - Cobros - Calificación"], correct: 0 },
+          { q: "Un error no crítico enfocado en el negocio corresponde a:", opts: ["PENC", "PECN", "SPC", "PECU"], correct: 1 },
+          { q: "¿Cuál es el objetivo de un indicador de gestión en COPC?", opts: ["Monitorear el rendimiento operacional y tomar acciones preventivas", "Reducir la nómina", "Sancionar asesores", "Crear manuales sin uso"], correct: 0 },
+          { q: "¿Qué mide la satisfacción global según el estándar?", opts: ["Percepción global del cliente final", "Número de llamadas colgadas", "Horas trabajadas", "Formatos diligenciados"], correct: 0 }
+        ]
+      },
+      {
+        id: "m3", name: "3. Procesos del Área", tag: "TEMA 3 - 9 H", icon: "☄️",
+        description: "Monitoreos, guías de calidad, errores críticos/no críticos y sesiones de calibración.",
+        contentType: "image", contentUrl: "https://via.placeholder.com/600x800/161b2e/00d2ff?text=Flujo+de+Procesos+y+Calibracion+(Haz+Scroll)",
+        contentInfo: "Revisa la guía de calidad, tipos de error (Usuario/Negocio) y las políticas de calibración.",
+        quiz: [
+          { q: "¿A quién se le considera 'asesor nuevo' en el esquema de monitoreo?", opts: ["Asesor con menos de 30/60 días en operación según política", "Cualquier persona recién contratada", "Asesor con faltas disciplinarias", "Quien cambie de sede"], correct: 0 },
+          { q: "¿Qué genera inmediatamente un Error Crítico para el Usuario?", opts: ["Afectación grave a la experiencia o información errónea grave", "Disminución de 1 punto en el quiz", "Llamado de atención verbal sin registro", "Reorganización de horario"], correct: 0 },
+          { q: "¿Cuál es la meta fundamental de una sesión de Calibración?", opts: ["Homologar criterios de evaluación entre analistas y operaciones", "Asignar turnos", "Evaluar llamadas en vivo", "Cambiar la pauta comercial"], correct: 0 },
+          { q: "¿Cuándo se genera una alerta operativa?", opts: ["Al identificar un hallazgo crítico o desviación recurrente", "Cada fin de mes", "Al ingresar un cliente nuevo", "Solo si el cliente se queja"], correct: 0 },
+          { q: "¿Qué incluye el checklist o formato de calibración?", opts: ["Items de cumplimiento, observaciones y acuerdos alcanzados", "Lista de asistencia", "Formatos de vacaciones", "Presupuesto del área"], correct: 0 }
+        ]
+      },
+      {
+        id: "m4", name: "4. Herramientas Tecnológicas", tag: "TEMA 4 - 2 H", icon: "🛠️",
+        description: "Uso y manejo de herramientas: SIMON, WFO, NICE, Gateway, Velaro, Infoges y Bitácora.",
+        contentType: "video", youtubeId: "dQw4w9WgXcQ",
+        contentInfo: "Mira los instructivos de uso de plataformas tecnológicas operacionales.",
+        quiz: [
+          { q: "¿Para qué se utiliza la plataforma SIMON en el ecosistema de calidad?", opts: ["Gestión y registro de reportes e interacciones de calidad", "Envío de mails personales", "Diseño gráfico", "Control de accesos a instalaciones"], correct: 0 },
+          { q: "¿Qué función cumple el sistema WFO/NICE?", opts: ["Grabación y auditoría de llamadas e interacciones", "Gestión de nómina", "Base de datos externa", "Antivirus corporativo"], correct: 0 },
+          { q: "La herramienta Velaro / Chat corporativo facilita:", opts: ["Atención y monitoreo de canales digitales", "Impresión de facturas", "Control de inventarios", "Cálculo de impuestos"], correct: 0 },
+          { q: "¿Qué información se registra en la Bitácora operativa?", opts: ["Novedades, seguimiento de casos y alertas registradas", "Menú de la cafetería", "Solicitudes de crédito", "Asistencia a capacitaciones de salud"], correct: 0 },
+          { q: "¿Cuál es la finalidad de Infoges?", opts: ["Visualización de informes y datos consolidados de gestión", "Crear usuarios de Windows", "Edición de video", "Calculadora de liquidaciones"], correct: 0 }
+        ]
+      },
+      {
+        id: "m5", name: "5. Análisis y Solución de Problemas", tag: "TEMA 5 - 2.5 H", icon: "🚀",
+        description: "Metodologías de análisis: Diagrama de Ishikawa, Parete, 5W's y redacción de análisis.",
+        contentType: "image", contentUrl: "https://via.placeholder.com/600x700/161b2e/00d2ff?text=Metodologias+Ishikawa+Pareto+5Ws+(Haz+Scroll)",
+        contentInfo: "Analiza los ejemplos prácticos del Diagrama de Ishikawa, Regla de Pareto y 5 Porqués.",
+        quiz: [
+          { q: "La regla de Pareto establece que aproximadamente el:", opts: ["80% de las consecuencias provienen del 20% de las causas", "50% de causas generan el 50% de errores", "100% de errores se corrigen en 1 día", "10% de la población monitorea el 90% de canales"], correct: 0 },
+          { q: "¿Qué busca determinar la técnica de los 5 Porqués?", opts: ["La causa raíz de un problema mediante preguntas consecutivas", "Los 5 mejores asesores", "Cinco preguntas básicas del cliente", "Las 5 horas pico"], correct: 0 },
+          { q: "El Diagrama de Ishikawa también es conocido como:", opts: ["Diagrama de Causa-Efecto o Espina de Pescado", "Matriz de Riesgos", "Gráfico de Barras", "Mapa de Calor"], correct: 0 },
+          { q: "¿Cuál es el primer paso para redactar un análisis de causa efectivo?", opts: ["Definir con claridad el problema u oportunidad observada", "Aplicar sanciones", "Escribir la solución sin datos", "Generar un reporte en Excel"], correct: 0 },
+          { q: "En la metodología 5W2H, ¿qué significa el 'Why' (Por qué)?", opts: ["La justificación o razón del problema/acción", "El costo de la medida", "La persona responsable", "El lugar de ocurrencia"], correct: 0 }
+        ]
+      },
+      {
+        id: "m6", name: "6. Aplicación de Fórmulas en Excel", tag: "TEMA 6 - 2.5 H", icon: "📊",
+        description: "Filtros, inmovilizar paneles, formato condicional, SUMA, PROMEDIO y promedio ponderado.",
+        contentType: "video", youtubeId: "dQw4w9WgXcQ",
+        contentInfo: "Completa la serie de videotutoriales para dominar el manejo de hojas de datos en Excel.",
+        quiz: [
+          { q: "¿Qué función en Excel calcula el valor representativo central de un conjunto de datos numéricos?", opts: ["PROMEDIO", "SUMA", "CONTAR", "MAX"], correct: 0 },
+          { q: "Para fijar filas o columnas mientras se desplaza por una hoja masiva se utiliza:", opts: ["Inmovilizar paneles", "Filtro avanzado", "Formato condicional", "Ocultar celdas"], correct: 0 },
+          { q: "¿Cuál es la utilidad del Formato Condicional?", opts: ["Resaltar celdas dinámicamente según reglas o valores de métricas", "Cambiar la fuente a negrita", "Proteger la hoja con clave", "Insertar tablas dinámicas"], correct: 0 },
+          { q: "¿Qué diferencia al promedio ponderado del promedio simple?", opts: ["Otorga pesos o importancias distintas a cada valor", "Solo suma los mayores a 100", "No permite usar números decimales", "Es exclusivo de gráficos"], correct: 0 },
+          { q: "¿Para qué sirve proteger/bloquear una hoja en Excel?", opts: ["Evitar modificaciones no autorizadas en fórmulas y datos de calidad", "Reducir el tamaño del archivo", "Enviar por email más rápido", "Eliminar duplicados"], correct: 0 }
+        ]
+      },
+      {
+        id: "m7", name: "7. Informes de Gestión", tag: "TEMA 7 - 3.5 H", icon: "📈",
+        description: "Informes de calidad percibida, canales digitales, SIREEM y reportes en SIMON.",
+        contentType: "image", contentUrl: "https://via.placeholder.com/600x700/161b2e/00d2ff?text=Informes+SIREEM+y+Canales+Digitales+(Haz+Scroll)",
+        contentInfo: "Revisa los formatos oficiales de informes de calidad percibida e indicadores mensuales.",
+        quiz: [
+          { q: "¿Qué mide un Informe de Calidad Percibida?", opts: ["La valoración directa transmitida por los usuarios sobre el servicio", "El número de llamadas atendidas", "El tiempo de descanso operacional", "Las ventas brutas"], correct: 0 },
+          { q: "El portal SIREEM se utiliza principalmente para:", opts: ["Extracción y consulta de fuentes para el informe mensual", "Subir canciones", "Revisión de correos corporativos", "Pago de facturas"], correct: 0 },
+          { q: "¿Qué elemento es fundamental al presentar un informe a operaciones?", opts: ["Datos verificados, análisis de causas y recomendaciones de mejora", "Solo gráficos sin texto", "Opiniones personales no respaldadas", "Lista de llamadas largas"], correct: 0 },
+          { q: "En informes de Canales Digitales (Chat/WhatsApp), un KPO común es:", opts: ["Tiempo de primera respuesta e índice de resolución", "Peso del archivo adjunto", "Color de la plantilla", "Marca del teclado"], correct: 0 },
+          { q: "¿Cuál es la frecuencia habitual para consolidar el reporte ejecutivo de calidad?", opts: ["Mensual / Semanal según el estándar operacional", "Anual únicamente", "Diario cada hora", "Cada 3 años"], correct: 0 }
+        ]
+      },
+      {
+        id: "m8", name: "8. Certificación Final Integradora", tag: "EVALUACIÓN INTEGRAL - 2 H", icon: "⭐",
+        description: "Evaluación final de 12 preguntas que certifica el dominio global de la ruta.",
+        contentType: "final_eval",
+        finalExam: [
+          { q: "1. ¿Cuál es la misión principal del área de Excelencia de la Experiencia?", opts: ["Monitorear, asegurar el estándar y promover la mejora continua", "Aumentar el precio del servicio", "Manejar relaciones públicas", "Sancionar al personal"], correct: 0 },
+          { q: "2. ¿Qué indicador COPC mide un error no crítico del negocio?", opts: ["PENC", "PECU", "PECN", "SPC"], correct: 0 },
+          { q: "3. ¿Cuál es el objetivo primordial de la Calibración?", opts: ["Homologar criterios de evaluación entre evaluadores", "Imponer multas", "Reestructurar el contrato", "Aumentar metas"], correct: 0 },
+          { q: "4. ¿Para qué se utiliza la herramienta SIMON?", opts: ["Gestión y consolidación de monitoreos de calidad", "Videoconferencias", "Diseño gráfico", "Música de fondo"], correct: 0 },
+          { q: "5. ¿Qué establece el Principio de Pareto?", opts: ["80% de las consecuencias provienen del 20% de las causas", "50% de causas = 50% de efectos", "Todo problema requiere 10 soluciones", "El tiempo es ilimitado"], correct: 0 },
+          { q: "6. ¿Qué función de Excel permite calcular la media aritmética de un grupo de notas?", opts: ["PROMEDIO", "SUMA", "CONTAR", "MAX"], correct: 0 },
+          { q: "7. ¿Qué reporte consolida la percepción del cliente final?", opts: ["Informe de Calidad Percibida", "Lista de asistencia", "Bitácora de fallas técnicas", "Reporte de nómina"], correct: 0 },
+          { q: "8. Un Error Crítico para el Usuario afecta directamente:", opts: ["La experiencia, transparencia o corrección de la información brindada", "Únicamente la estética del aplicativo", "El tiempo de refrigerio", "La marca del ordenador"], correct: 0 },
+          { q: "9. ¿Qué técnica hace preguntas repetitivas para hallar la causa raíz?", opts: ["Los 5 Porqués", "Diagrama de Venn", "Matriz FODA", "Regla de 3"], correct: 0 },
+          { q: "10. ¿Qué se inmoviliza en Excel para no perder de vista los encabezados al bajar?", opts: ["Paneles / Filas superiores", "Fórmulas", "Libros enteros", "Gráficos"], correct: 0 },
+          { q: "11. Plataforma empleada para extracción de datos en el informe mensual de calidad:", opts: ["SIREEM / SIMON", "Photoshop", "Spotify", "Wordpad"], correct: 0 },
+          { q: "12. ¿Qué refleja un gráfico de causa-efecto (Ishikawa)?", opts: ["Mapeo estructurado de las posibles causas de un problema", "Resultados de ventas", "Cronograma de vacaciones", "Presupuesto anual"], correct: 0 }
+        ]
+      }
+    ];
+
+    const STORAGE_KEY = "EDX_GO_PROGRESS_V5";
+    let userProgress = { completedModules: [], studentName: "", attempts: {}, viewedContent: {} };
+    let ytPlayer = null;
+
+    function loadProgress() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { userProgress = JSON.parse(saved); } catch (e) { console.error(e); }
+      }
+      if (!userProgress.attempts) userProgress.attempts = {};
+      if (!userProgress.viewedContent) userProgress.viewedContent = {};
+      renderModules();
+      updateProgressBar();
+    }
+
+    function saveProgress() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userProgress));
+      updateProgressBar();
+    }
+
+    function resetProgress() {
+      if (confirm("¿Deseas reiniciar todo tu progreso guardado?")) {
+        localStorage.removeItem(STORAGE_KEY);
+        userProgress = { completedModules: [], studentName: "", attempts: {}, viewedContent: {} };
+        renderModules();
+        updateProgressBar();
+      }
+    }
+
+    function updateProgressBar() {
+      const percent = Math.round((userProgress.completedModules.length / MODULES.length) * 100);
+      document.getElementById("progress-bar").style.width = `${percent}%`;
+      document.getElementById("progress-text").innerText = `${percent}% Completado`;
+    }
+
+    function renderModules() {
+      const grid = document.getElementById("modules-grid");
+      grid.innerHTML = "";
+
+      MODULES.forEach((mod, index) => {
+        const isCompleted = userProgress.completedModules.includes(mod.id);
+        const isUnlocked = index === 0 || userProgress.completedModules.includes(MODULES[index - 1].id);
+
+        const card = document.createElement("div");
+        card.className = `module-card ${isCompleted ? 'completed' : ''} ${!isUnlocked ? 'locked' : ''}`;
+        
+        card.innerHTML = `
+          <div class="card-icon">${mod.icon}</div>
+          <span class="card-tag">${mod.tag}</span>
+          <h3 class="card-title">${mod.name}</h3>
+          <p class="card-desc">${mod.description}</p>
+          <button class="btn" onclick="openModule('${mod.id}')">
+            ${isCompleted ? 'Repasar Módulo' : 'Entrar al Módulo'}
+          </button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    let activeModuleId = null;
+    let selectedAnswers = {};
+
+    function openModule(modId) {
+      activeModuleId = modId;
+      selectedAnswers = {};
+      const mod = MODULES.find(m => m.id === modId);
+      const body = document.getElementById("modal-body");
+
+      if (modId === "m8") {
+        // Examen Final (12 Preguntas con Reintentos Libres)
+        body.innerHTML = `
+          <h2>${mod.icon} ${mod.name}</h2>
+          <p style="margin-bottom:15px; color:var(--text-muted)">Evaluación Integral de la Ruta (12 Preguntas). Completa tus datos e ingresa tus respuestas:</p>
+          <input type="text" id="student-name-input" placeholder="Nombre Completo del Estudiante" value="${userProgress.studentName || ''}" style="width:100%; padding:10px; margin-bottom:20px; border-radius:6px; border:1px solid var(--border); background:#0b0d19; color:#fff;">
+          
+          <div class="scroll-container" style="max-height:450px;">
+            ${mod.finalExam.map((q, qIdx) => `
+              <div class="question-block">
+                <p class="question-title">${q.q}</p>${q.opts.map((opt, oIdx) => `
+                  <div class="quiz-option" onclick="selectExamOption(${qIdx}, ${oIdx}, this)">
+                    ${opt}
+                  </div>
+                `).join('')}
+              </div>
+            `).join('')}
+          </div>
+
+          <button class="btn" id="btn-submit-final-exam" style="margin-top:15px;" onclick="validateFinalExam()">Entregar Examen y Finalizar Ruta</button>
+        `;
+      } else {
+        const attemptsUsed = userProgress.attempts[modId] || 0;
+        const isViewed = userProgress.viewedContent[modId] || false;
+
+        body.innerHTML = `
+          <h2>${mod.icon} ${mod.name}</h2>
+          
+          <div class="tab-container">
+            <button class="tab-btn active" id="tab-btn-content" onclick="switchTab('content')">1. Contenido</button>
+            <button class="tab-btn" id="tab-btn-quiz" ${!isViewed ? 'disabled' : ''} onclick="switchTab('quiz')">
+              2. Quiz del Módulo (5 Preguntas) ${isViewed ? '🔓' : '🔒'}
+            </button>
+          </div>
+
+          <div id="tab-content">
+            ${!isViewed ? '<div class="alert-banner">🔒 Debes revisar el contenido/video completo para habilitar el Quiz.</div>' : ''}
+            <p style="color:var(--text-muted); margin-bottom:10px;">${mod.contentInfo}</p>
+            
+            <div class="scroll-container" id="media-scroll-box" onscroll="handleScrollCheck('${mod.id}')">
+              ${renderMediaBox(mod)}
+            </div>
+
+            ${mod.contentType === 'text' && !isViewed ? `
+              <button class="btn" style="margin-top:15px;" onclick="unlockModuleContent('${mod.id}')">He leído todo el material ✓</button>
+            ` : ''}
+
+            <button class="btn" id="btn-go-quiz" style="margin-top:15px;" ${!isViewed ? 'disabled' : ''} onclick="switchTab('quiz')">
+              ${isViewed ? 'Ir al Quiz del Módulo →' : 'Completa el contenido para habilitar el Quiz'}
+            </button>
+          </div>
+
+          <div id="tab-quiz" style="display:none;">
+            <p style="color:var(--text-muted); margin-bottom:10px; font-size:0.85rem;">
+              Intentos fallidos en este ciclo: <strong style="color:var(--primary);">${attemptsUsed} / 2</strong> (Margen permitido: máximo 1 error).
+            </p>
+            
+            <div class="scroll-container" style="max-height:400px;">
+              ${mod.quiz.map((q, qIdx) => `
+                <div class="question-block">
+                  <p class="question-title">${qIdx + 1}. ${q.q}</p>${q.opts.map((opt, oIdx) => `
+                    <div class="quiz-option" onclick="selectQuizOption(${qIdx}, ${oIdx}, this)">
+                      ${opt}
+                    </div>
+                  `).join('')}
+                </div>
+              `).join('')}
+            </div>
+
+            <button id="btn-submit-mod-quiz" class="btn" style="margin-top:15px;" onclick="validateModuleQuiz('${mod.id}')">Validar Respuestas y Completar</button>
+          </div>
+        `;
+
+        if (mod.contentType === "video") {
+          setTimeout(() => initYouTubePlayer(mod.youtubeId, mod.id), 300);
+        }
+      }
+
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function renderMediaBox(mod) {
+      if (mod.contentType === "video") {
+        return `<div class="media-box"><div id="yt-player-container"></div></div>`;
+      } else if (mod.contentType === "image") {
+        return `<div class="media-box"><img id="module-img" src="${mod.contentUrl}" alt="Infografía del módulo"></div>`;
+      } else {
+        return `<div style="padding:10px;">${mod.contentInfo}</div>`;
+      }
+    }
+
+    function initYouTubePlayer(videoId, modId) {
+      if (typeof YT !== 'undefined' && YT.Player) {
+        ytPlayer = new YT.Player('yt-player-container', {
+          height: '315', width: '100%', videoId: videoId,
+          events: {
+            'onStateChange': function(event) {
+              if (event.data === YT.PlayerState.ENDED) {
+                alert("¡Has terminado de ver el video! El Quiz del módulo ha sido desbloqueado.");
+                unlockModuleContent(modId);
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function handleScrollCheck(modId) {
+      const mod = MODULES.find(m => m.id === modId);
+      if (mod.contentType !== "image") return;
+
+      const container = document.getElementById("media-scroll-box");
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 30) {
+        if (!userProgress.viewedContent[modId]) {
+          alert("¡Has revisado todo el material! El Quiz ha sido desbloqueado.");
+          unlockModuleContent(modId);
+        }
+      }
+    }
+
+    function unlockModuleContent(modId) {
+      userProgress.viewedContent[modId] = true;
+      saveProgress();
+
+      const quizTabBtn = document.getElementById("tab-btn-quiz");
+      const goQuizBtn = document.getElementById("btn-go-quiz");
+
+      if (quizTabBtn) { quizTabBtn.disabled = false; quizTabBtn.innerText = "2. Quiz del Módulo (5 Preguntas) 🔓"; }
+      if (goQuizBtn) { goQuizBtn.disabled = false; goQuizBtn.innerText = "Ir al Quiz del Módulo →"; }
+    }
+
+    function switchTab(tabName) {
+      const contentDiv = document.getElementById("tab-content");
+      const quizDiv = document.getElementById("tab-quiz");
+      const btnContent = document.getElementById("tab-btn-content");
+      const btnQuiz = document.getElementById("tab-btn-quiz");
+
+      if (tabName === 'content') {
+        contentDiv.style.display = "block"; quizDiv.style.display = "none";
+        btnContent.classList.add("active"); btnQuiz.classList.remove("active");
+      } else {
+        contentDiv.style.display = "none"; quizDiv.style.display = "block";
+        btnContent.classList.remove("active"); btnQuiz.classList.add("active");
+      }
+    }
+
+    function selectQuizOption(qIdx, oIdx, element) {
+      selectedAnswers[qIdx] = oIdx;
+      const parent = element.parentElement;
+      parent.querySelectorAll('.quiz-option').forEach(opt => opt.classList.remove('selected'));
+      element.classList.add('selected');
+    }
+
+    function selectExamOption(qIdx, oIdx, element) {
+      selectedAnswers[qIdx] = oIdx;
+      const parent = element.parentElement;
+      parent.querySelectorAll('.quiz-option').forEach(opt => opt.classList.remove('selected'));
+      element.classList.add('selected');
+    }
+
+    /* Validar Quiz de Módulo (5 preguntas - Permite hasta 1 error) */
+    function validateModuleQuiz(modId) {
+      const mod = MODULES.find(m => m.id === modId);
+      
+      if (Object.keys(selectedAnswers).length < mod.quiz.length) {
+        alert("Por favor responde las 5 preguntas del quiz.");
+        return;
+      }
+
+      let correctCount = 0;
+      mod.quiz.forEach((q, idx) => {
+        if (selectedAnswers[idx] === q.correct) correctCount++;
+      });
+
+      if (!userProgress.attempts[modId]) userProgress.attempts[modId] = 0;
+
+      // Aprobación con margen de error (mínimo 4 correctas de 5)
+      if (correctCount >= 4) {
+        userProgress.attempts[modId] = 0;
+        alert(`¡Felicidades! 🎉 Respondiste correctamente ${correctCount}/5 preguntas. Módulo aprobado.`);
+        if (!userProgress.completedModules.includes(modId)) {
+          userProgress.completedModules.push(modId);
+        }
+        saveProgress();
+        renderModules();
+        closeModal();
+      } else {
+        userProgress.attempts[modId] += 1;
+        saveProgress();
+
+        if (userProgress.attempts[modId] >= 2) {
+          userProgress.attempts[modId] = 0;
+          userProgress.viewedContent[modId] = false;
+          userProgress.completedModules = userProgress.completedModules.filter(id => id !== modId);
+          saveProgress();
+          renderModules();
+
+          alert(`❌ Tuviste ${correctCount}/5 aciertos. Has fallado 2 veces consecutivas. Debes volver a repasar el contenido completo para intentar nuevamente.`);
+          openModule(modId);
+          switchTab('content');
+        } else {
+          alert(`❌ Obtuviste ${correctCount}/5 aciertos (se requieren mínimo 4). Te queda 1 intento antes de tener que repetir la lección.`);
+          openModule(modId);
+          switchTab('quiz');
+        }
+      }
+    }
+
+    /* Validar Examen Final (12 preguntas - Intento Libre) */
+    function validateFinalExam() {
+      const mod = MODULES.find(m => m.id === "m8");
+      const nameInput = document.getElementById("student-name-input").value.trim();
+
+      if (!nameInput) { alert("Ingresa tu nombre completo."); return; }
+      if (Object.keys(selectedAnswers).length < mod.finalExam.length) {
+        alert("Por favor responde las 12 preguntas del examen final.");
+        return;
+      }
+
+      userProgress.studentName = nameInput;
+
+      let correctCount = 0;
+      mod.finalExam.forEach((q, idx) => {
+        if (selectedAnswers[idx] === q.correct) correctCount++;
+      });
+
+      const scorePercent = Math.round((correctCount / 12) * 100);
+
+      if (scorePercent >= 80) { // Aprueba con 80% o más
+        if (!userProgress.completedModules.includes("m8")) {
+          userProgress.completedModules.push("m8");
+        }
+        saveProgress();
+        renderModules();
+
+        const body = document.getElementById("modal-body");
+        body.innerHTML = `
+          <h2>🎉 ¡Felicitaciones, ${userProgress.studentName}!</h2>
+          <p style="margin:15px 0; color:var(--text-muted)">Aprobaste el Examen Final con un puntaje de <strong>${scorePercent}% (${correctCount}/12)</strong>.</p>
+          <button class="btn" style="margin-bottom:10px;" onclick="downloadPDF()">Descargar Certificado PDF</button>
+          <button class="btn btn-secondary" onclick="downloadExcel()">Descargar Reporte Excel</button>
+        `;
+      } else {
+        alert(`❌ Obtuviste ${correctCount}/12 aciertos (${scorePercent}%). Se requiere un mínimo del 80% para certificarte.\n\nPuedes volver a intentar la evaluación inmediatamente.`);
+        openModule("m8"); // Permite reintento libre de las 12 preguntas
+      }
+    }
+
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+      if (ytPlayer && ytPlayer.destroy) ytPlayer.destroy();
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape' });
+
+      doc.setFillColor(11, 13, 25);
+      doc.rect(0, 0, 297, 210, 'F');
+
+      doc.setDrawColor(0, 210, 255);
+      doc.setLineWidth(2);
+      doc.rect(10, 10, 277, 190);
+
+      doc.setTextColor(0, 210, 255);
+      doc.setFontSize(26);
+      doc.text("CERTIFICADO DE APROBACIÓN", 148, 45, { align: "center" });
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.text("Otorgado a:", 148, 75, { align: "center" });
+
+      doc.setFontSize(22);
+      doc.setTextColor(0, 210, 255);
+      doc.text(userProgress.studentName.toUpperCase(), 148, 95, { align: "center" });
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.text("Por completar la Ruta de Capacitación en Excelencia de la Experiencia", 148, 120, { align: "center" });
+      doc.text("Duración: 24 Horas Académicas | Estado: Aprobado", 148, 135, { align: "center" });
+
+      doc.save(`Certificado_EDX_GO_${userProgress.studentName.replace(/\s+/g, '_')}.pdf`);
+    }
+
+    function downloadExcel() {
+      const data = [
+        ["Nombre del Estudiante", "Curso", "Horas", "Estado", "Fecha"],
+        [userProgress.studentName, "EDX GO - Ruta de Excelencia", 24, "Aprobado", new Date().toLocaleDateString()]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Resultados");
+      XLSX.writeFile(wb, `Reporte_EDX_GO_${userProgress.studentName.replace(/\s+/g, '_')}.xlsx`);
+    }
+
+    document.addEventListener("DOMContentLoaded", loadProgress);
+  </script>
+</body>
+</html>
